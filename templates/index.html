@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hand Gesture Recognition — Real-time Demo</title>
+    <meta name="description" content="Real-time hand gesture recognition using HOG features, Hu-Moments, SVM, KNN, and Random Forest models.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <!-- Animated background blobs -->
+    <div class="bg-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-content">
+                <div class="logo-group">
+                    <div class="logo-icon">🖐️</div>
+                    <div>
+                        <h1 id="app-title">Hand Gesture Recognition</h1>
+                        <p class="subtitle">Real-time ML Classification Demo</p>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <div class="status-badge" id="status-badge">
+                        <span class="status-dot"></span>
+                        <span class="status-text">Offline</span>
+                    </div>
+                    <button class="btn btn-primary" id="btn-start">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                        </svg>
+                        Start Camera
+                    </button>
+                    <button class="btn btn-secondary" id="btn-stop" style="display:none;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="6" y="6" width="12" height="12" rx="2"></rect>
+                        </svg>
+                        Stop
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main content -->
+        <main class="main-content">
+            <!-- Left column: Camera & Final Result -->
+            <div class="left-column">
+                <!-- Camera feed & Final Result combined -->
+                <div class="card camera-card result-card" id="result-card">
+                    <div class="card-header">
+                        <h2>📹 Camera Feed</h2>
+                        <div class="fps-badge" id="fps-badge">-- FPS</div>
+                    </div>
+                    <div class="camera-wrapper" id="camera-wrapper">
+                        <video id="video" autoplay playsinline muted></video>
+                        <canvas id="overlay-canvas"></canvas>
+                        <div class="camera-placeholder" id="camera-placeholder">
+                            <div class="placeholder-icon">📷</div>
+                            <p>Click <strong>"Start Camera"</strong> to begin</p>
+                            <p class="hint">Place your hand in the center box</p>
+                        </div>
+                    </div>
+                    <div class="result-inner">
+                        <div class="result-emoji" id="result-emoji">❓</div>
+                        <div class="result-info">
+                            <div class="result-label-tag">Final Prediction</div>
+                            <div class="result-label" id="result-label">Waiting...</div>
+                            <div class="result-desc" id="result-desc">Start the camera and show a gesture</div>
+                        </div>
+                    </div>
+                    <div class="result-confidence-bar">
+                        <div class="confidence-segment" id="conf-fist" data-gesture="fist">
+                            <span class="conf-emoji">✊</span>
+                            <span class="conf-name">Fist</span>
+                        </div>
+                        <div class="confidence-segment" id="conf-two" data-gesture="two">
+                            <span class="conf-emoji">✌️</span>
+                            <span class="conf-name">Two</span>
+                        </div>
+                        <div class="confidence-segment" id="conf-palm" data-gesture="palm">
+                            <span class="conf-emoji">🖐️</span>
+                            <span class="conf-name">Palm</span>
+                        </div>
+                    </div>
+                    <!-- Prediction Mode Toggle -->
+                    <div class="mode-toggle-container">
+                        <button class="mode-btn active" id="btn-mode-main">HOG Gray (Main)</button>
+                        <button class="mode-btn" id="btn-mode-ensemble">Ensemble (Voting)</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right column: Models & Debug views -->
+            <div class="right-column">
+                <!-- Per-model predictions -->
+                <div class="card models-card">
+                    <div class="card-header">
+                        <h2>🧠 Model Predictions</h2>
+                    </div>
+                    <div class="models-grid">
+                        <div class="model-item" id="model-hog-gray">
+                            <div class="model-icon" style="--accent: #6366f1;">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+                                    <path d="M3 9h18M9 3v18"></path>
+                                </svg>
+                            </div>
+                            <div class="model-info">
+                                <div class="model-name">HOG (Gray) + SVM</div>
+                                <div class="model-pred" id="pred-hog-gray">—</div>
+                            </div>
+                            <div class="model-badge" id="badge-hog-gray">⏳</div>
+                        </div>
+
+                        <div class="model-item" id="model-hog-mask">
+                            <div class="model-icon" style="--accent: #ec4899;">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <path d="M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20M2 12h20"></path>
+                                </svg>
+                            </div>
+                            <div class="model-info">
+                                <div class="model-name">HOG (Mask) + SVM</div>
+                                <div class="model-pred" id="pred-hog-mask">—</div>
+                            </div>
+                            <div class="model-badge" id="badge-hog-mask">⏳</div>
+                        </div>
+
+                        <div class="model-item" id="model-hu-knn">
+                            <div class="model-icon" style="--accent: #f59e0b;">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
+                                </svg>
+                            </div>
+                            <div class="model-info">
+                                <div class="model-name">Hu-Moments + KNN</div>
+                                <div class="model-pred" id="pred-hu-knn">—</div>
+                            </div>
+                            <div class="model-badge" id="badge-hu-knn">⏳</div>
+                        </div>
+
+                        <div class="model-item" id="model-hu-rf">
+                            <div class="model-icon" style="--accent: #10b981;">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                    <circle cx="9" cy="7" r="4"></circle>
+                                    <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path>
+                                </svg>
+                            </div>
+                            <div class="model-info">
+                                <div class="model-name">Hu-Moments + RF</div>
+                                <div class="model-pred" id="pred-hu-rf">—</div>
+                            </div>
+                            <div class="model-badge" id="badge-hu-rf">⏳</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Debug views -->
+                <div class="card debug-card">
+                    <div class="card-header">
+                        <h2>🔍 Preprocessing Debug</h2>
+                        <button class="btn-toggle" id="btn-toggle-debug">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="debug-grid" id="debug-grid">
+                        <div class="debug-item">
+                            <div class="debug-label">ROI (Region of Interest)</div>
+                            <div class="debug-img-wrap">
+                                <img id="debug-roi" src="" alt="ROI" class="debug-img">
+                                <div class="debug-placeholder">No data</div>
+                            </div>
+                        </div>
+                        <div class="debug-item">
+                            <div class="debug-label">Grayscale</div>
+                            <div class="debug-img-wrap">
+                                <img id="debug-gray" src="" alt="Grayscale" class="debug-img">
+                                <div class="debug-placeholder">No data</div>
+                            </div>
+                        </div>
+                        <div class="debug-item">
+                            <div class="debug-label">Skin Mask</div>
+                            <div class="debug-img-wrap">
+                                <img id="debug-mask" src="" alt="Mask" class="debug-img">
+                                <div class="debug-placeholder">No data</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- HSV Tuning -->
+                <div class="card info-card" id="hsv-tuning-card">
+                    <div class="card-header" style="justify-content: space-between; display: flex;">
+                        <h2>🎛️ HSV Tuning</h2>
+                    </div>
+                    <div style="padding: 16px 20px;">
+                        <div style="display: flex; gap: 20px;">
+                            <div style="flex: 1;">
+                                <label style="font-size: 0.8rem; color: var(--text-secondary);">Lower HSV</label>
+                                <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                                    <span style="font-size: 0.7rem; color: var(--text-muted); width: 12px;">H</span>
+                                    <input type="range" id="h-min" min="0" max="179" value="{{ hsv_lower[0] }}" style="flex: 1;">
+                                    <span id="h-min-val" style="font-size: 0.7rem; width: 24px; text-align: right;">{{ hsv_lower[0] }}</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                                    <span style="font-size: 0.7rem; color: var(--text-muted); width: 12px;">S</span>
+                                    <input type="range" id="s-min" min="0" max="255" value="{{ hsv_lower[1] }}" style="flex: 1;">
+                                    <span id="s-min-val" style="font-size: 0.7rem; width: 24px; text-align: right;">{{ hsv_lower[1] }}</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                                    <span style="font-size: 0.7rem; color: var(--text-muted); width: 12px;">V</span>
+                                    <input type="range" id="v-min" min="0" max="255" value="{{ hsv_lower[2] }}" style="flex: 1;">
+                                    <span id="v-min-val" style="font-size: 0.7rem; width: 24px; text-align: right;">{{ hsv_lower[2] }}</span>
+                                </div>
+                            </div>
+                            <div style="flex: 1;">
+                                <label style="font-size: 0.8rem; color: var(--text-secondary);">Upper HSV</label>
+                                <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                                    <span style="font-size: 0.7rem; color: var(--text-muted); width: 12px;">H</span>
+                                    <input type="range" id="h-max" min="0" max="179" value="{{ hsv_upper[0] }}" style="flex: 1;">
+                                    <span id="h-max-val" style="font-size: 0.7rem; width: 24px; text-align: right;">{{ hsv_upper[0] }}</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                                    <span style="font-size: 0.7rem; color: var(--text-muted); width: 12px;">S</span>
+                                    <input type="range" id="s-max" min="0" max="255" value="{{ hsv_upper[1] }}" style="flex: 1;">
+                                    <span id="s-max-val" style="font-size: 0.7rem; width: 24px; text-align: right;">{{ hsv_upper[1] }}</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                                    <span style="font-size: 0.7rem; color: var(--text-muted); width: 12px;">V</span>
+                                    <input type="range" id="v-max" min="0" max="255" value="{{ hsv_upper[2] }}" style="flex: 1;">
+                                    <span id="v-max-val" style="font-size: 0.7rem; width: 24px; text-align: right;">{{ hsv_upper[2] }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Morphology Tuning -->
+                <div class="card info-card" id="morph-tuning-card">
+                    <div class="card-header">
+                        <h2>🧪 Morphology Tuning</h2>
+                    </div>
+                    <div style="padding: 16px 20px;">
+                        <label style="font-size: 0.8rem; color: var(--text-secondary);">Kernel Size</label>
+                        <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                            <span style="font-size: 0.7rem; color: var(--text-muted); width: 12px;">K</span>
+                            <input type="range" id="morph-kernel" min="1" max="15" step="2" value="{{ morph_kernel }}" style="flex: 1;">
+                            <span id="morph-kernel-val" style="font-size: 0.7rem; width: 24px; text-align: right;">{{ morph_kernel }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <p>CS231 — Computer Vision &nbsp;|&nbsp; Hand Gesture Recognition Final Project</p>
+        </footer>
+    </div>
+
+    <!-- Hidden canvas for capturing frames -->
+    <canvas id="capture-canvas" style="display:none;"></canvas>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.4/socket.io.js"></script>
+    <script src="/static/app.js"></script>
+</body>
+</html>
